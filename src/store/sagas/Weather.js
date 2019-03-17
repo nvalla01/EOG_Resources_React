@@ -1,4 +1,5 @@
-import { takeEvery, call, put, cancel, all } from "redux-saga/effects";
+import { take, race, takeEvery, call, put, cancel, all } from "redux-saga/effects";
+import {delay} from 'redux-saga'
 import API from "../api";
 import * as actions from "../actions";
 
@@ -17,6 +18,19 @@ import * as actions from "../actions";
 
 */
 
+function* getDroneDetails(action) {
+  while (true) {
+    const {error, data} = yield call(API.findDroneMetrics);
+    if (error) {
+      yield put ({type: action.API_ERROR, code: error.code });
+      yield cancel();
+      return;
+    }
+    yield put({ type: actions.DRONE_METRICS_DATA_RECEVED, data });
+    yield call(delay, 4000)
+}
+
+}
 function* watchWeatherIdReceived(action) {
   const { id } = action;
   const { error, data } = yield call(API.findWeatherbyId, id);
@@ -51,10 +65,20 @@ function* watchFetchWeather(action) {
 }
 
 function* watchAppLoad() {
-  yield all([
-    takeEvery(actions.FETCH_WEATHER, watchFetchWeather),
-    takeEvery(actions.WEATHER_ID_RECEIVED, watchWeatherIdReceived)
-  ]);
+  // while (true) {
+    yield all([
+      // takeEvery(actions.FETCH_DRONE_DETAILS, getDroneDetails),
+      takeEvery(actions.FETCH_WEATHER, watchFetchWeather),
+      takeEvery(actions.WEATHER_ID_RECEIVED, watchWeatherIdReceived)
+    ]);
+// }
+
+  while (true) {
+    yield take(actions.FETCH_DRONE_DETAILS);
+    yield race([
+      call(getDroneDetails)
+    ]);
+  }
 }
 
 export default [watchAppLoad];
